@@ -133,6 +133,9 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends software-pro
     apt-get update && \
     apt-get install -y intel-opencl-icd intel-media-va-driver-non-free libmfx1 intel-oneapi-onevpl-devel
 
+# Workaround for meson
+COPY vpl.pc /opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig/vpl.pc
+
 ENV CMAKE_PREFIX_PATH=/opt/intel/oneapi/vpl
 ENV CPATH=/opt/intel/oneapi/vpl/2021.2.2/include
 ENV LD_LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LD_LIBRARY_PATH}

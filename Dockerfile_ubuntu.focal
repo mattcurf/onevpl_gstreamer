@@ -1,0 +1,288 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Moscow
+
+ARG PACKAGE_ORIGIN="https://gstreamer.freedesktop.org"
+ARG PREFIX=/usr
+ARG LIBDIR=/usr/lib/x86_64-linux-gnu
+ARG LIBEXECDIR=/usr/lib/x86_64-linux-gnu
+#ARG GST_VERSION=1.16.2
+ARG GST_VERSION=1.18.4
+ARG BUILD_TYPE=release
+ENV GSTREAMER_LIB_DIR=${LIBDIR}
+ENV LIBRARY_PATH=${GSTREAMER_LIB_DIR}:${GSTREAMER_LIB_DIR}/gstreamer-1.0:${LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=${LIBRARY_PATH}
+ENV PKG_CONFIG_PATH=${GSTREAMER_LIB_DIR}/pkgconfig
+ENV GST_VAAPI_ALL_DRIVERS=1
+
+# install packages
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get install --no-install-recommends -q -y \
+    autoconf \
+    automake \
+    autopoint \
+    bc \
+    bison \
+    bzip2 \
+    clang \
+    cmake \
+    debianutils \
+    diffutils \
+    expat \
+    file \
+    findutils \
+    flex \
+    g++ \
+    gawk \
+    gcc \
+    gettext \
+    git-core \
+    git-lfs \
+    libbsd-dev \
+    libclang-dev \
+    libdrm-dev \
+    libedit-dev \
+    libegl1-mesa-dev \
+    libexpat1-dev \
+    libflac-dev \
+    libgl1-mesa-dev \
+    libgles2-mesa-dev \
+    libglib2.0-dev \
+    libgudev-1.0-dev \
+    libjson-glib-dev \
+    libmp3lame-dev \
+    libopencv-dev \
+    libopenscenegraph-dev \
+    liborc-0.4-dev \
+    libpango1.0-dev \
+    libpciaccess-dev \
+    libpython3-dev \
+    libtheora-dev \
+    libtool \
+    libudev-dev \
+    libv4l-dev \
+    libvorbis-dev \
+    libvulkan-dev \
+    libwayland-dev \
+    libx11-dev \
+    libx11-xcb-dev \
+    libxcb-dri2-0-dev \
+    libxcb-glx0-dev \
+    libxcb-xfixes0-dev \
+    libxdamage-dev \
+    libxext-dev \
+    libxfixes-dev \
+    libxrandr-dev \
+    libxrender-dev \
+    libxshmfence-dev \
+    libx264-dev \
+    libx265-dev \
+    libva-dev \
+    llvm-dev \
+    make \
+    nasm \
+    ocl-icd-dev \
+    ocl-icd-opencl-dev \
+    opencl-headers \
+    passwd \
+    patch \
+    pkg-config \
+    python3 \
+    python3-pip \
+    sudo \
+    software-properties-common \
+    x11proto-dri2-dev \
+    x11proto-gl-dev \
+    xutils-dev \
+    xz-utils \
+    yasm \
+  && git lfs install \
+  && pip3 install \
+    attr \
+    bd-metric \
+    distro \
+    lxml \
+    meson \
+    ninja \
+    numpy \
+    scikit-image \
+    slash==1.5.1 \
+  && apt-get -y clean \
+  && apt-get -y autoclean \
+  && echo "%sudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopass \
+  && useradd -G sudo,video -m media
+
+#  && add-apt-repository -y ppa:intel-opencl/intel-opencl \
+#  && apt-get -y install libigc-dev \
+
+# WA for sudo errors in containers (https://github.com/sudo-project/sudo/issues/42)
+RUN echo "Set disable_coredump false" >> /etc/sudo.conf
+
+WORKDIR /build
+RUN mkdir -p build/src
+
+
+# Install oneVPL and oneVPL GPU drivers from Agama and oneAPI
+#-----------------------
+RUN apt-get update -y && apt-get install -y --no-install-recommends software-properties-common ca-certificates gnupg wget sudo && \
+    wget -qO - https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB | apt-key add - && \
+    wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - && \
+    add-apt-repository "deb https://apt.repos.intel.com/oneapi all main" && \
+    add-apt-repository "deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main" && \
+    apt-get update && \
+    apt-get install -y intel-opencl-icd intel-media-va-driver-non-free libmfx1 intel-oneapi-onevpl-devel
+
+ENV CMAKE_PREFIX_PATH=/opt/intel/oneapi/vpl
+ENV CPATH=/opt/intel/oneapi/vpl/2021.2.2/include
+ENV LD_LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LD_LIBRARY_PATH}
+ENV LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LIBRARY_PATH}
+ENV PATH=/opt/intel/oneapi/vpl/2021.2.2/bin:${PATH}
+ENV PKG_CONFIG_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV VPL_BIN=/opt/intel/oneapi/vpl/2021.2.2/bin
+ENV VPL_INCLUDE=/opt/intel/oneapi/vpl/2021.2.2/include
+ENV VPL_LIB=/opt/intel/oneapi/vpl/2021.2.2/lib
+ENV VPL_ROOT=/opt/intel/oneapi/vpl/2021.2.2
+ENV ONEAPI_ROOT=/opt/intel/oneapi
+ENV LIBVA_DRIVER_NAME=iHD
+
+
+# GStreamer core
+#-----------------------
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gstreamer.git && \
+    cd gstreamer && \
+    PKG_CONFIG_PATH=$PWD/build/pkgconfig meson \
+        -Dexamples=disabled \
+        -Dtests=disabled \
+        -Dbenchmarks=disabled \
+        -Dgtk_doc=disabled \
+        -Dpackage-origin="${PACKAGE_ORIGIN}" \
+        --buildtype=${BUILD_TYPE} \
+        --prefix=${PREFIX} \
+        --libdir=${LIBDIR} \
+        --libexecdir=${LIBEXECDIR} \
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/
+
+
+# GStreamer Base plugins
+#-----------------------
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gst-plugins-base.git && \
+    cd gst-plugins-base && \
+    PKG_CONFIG_PATH=$PWD/build/pkgconfig:${PKG_CONFIG_PATH} meson \
+        -Dexamples=disabled \
+        -Dtests=disabled \
+        -Dgtk_doc=disabled \
+        -Dnls=disabled \
+        -Dpackage-origin="${PACKAGE_ORIGIN}" \
+        --buildtype=${BUILD_TYPE} \
+        --prefix=${PREFIX} \
+        --libdir=${LIBDIR} \
+        --libexecdir=${LIBEXECDIR} \
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/
+
+
+# GStreamer Good plugins
+#-----------------------
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gst-plugins-good.git && \
+    cd gst-plugins-good && \
+    PKG_CONFIG_PATH=$PWD/build/pkgconfig:${PKG_CONFIG_PATH} meson \
+        -Dexamples=disabled \
+        -Dtests=disabled \
+        -Dgtk_doc=disabled \
+        -Dnls=disabled \
+        -Dpackage-origin="${PACKAGE_ORIGIN}" \
+        --buildtype=${BUILD_TYPE} \
+        --prefix=${PREFIX} \
+        --libdir=${LIBDIR} \
+        --libexecdir=${LIBEXECDIR} \
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/
+
+
+# GStreamer Bad plugins
+#-----------------------
+RUN git clone https://github.com/intel-media-ci/cartwheel-gst-plugins-bad --recursive && \
+    cd cartwheel-gst-plugins-bad/gst-plugins-bad && \
+    git config --global user.email "dev@example.com" && \
+    git config --global user.name "dev" && \
+    git checkout -b dev && \
+    git am ../patches/*.patch && \
+    cd .. && \
+    git pull --rebase --recurse-submodule && \
+    cd gst-plugins-bad && \
+    PKG_CONFIG_PATH=$PWD/build/pkgconfig:${PKG_CONFIG_PATH} meson \
+        -Dmfx_api=oneVPL \
+        -Dexamples=disabled \
+        -Dtests=disabled \
+        -Ddoc=disabled \
+        -Dnls=disabled \
+        -Dx265=disabled \
+        -Dyadif=disabled \
+        -Dresindvd=disabled \
+        -Dmplex=disabled \
+        -Ddts=disabled \
+        -Dofa=disabled \
+        -Dfaad=disabled \
+        -Dmpeg2enc=disabled \
+        -Dpackage-origin="${PACKAGE_ORIGIN}" \
+        --buildtype=${BUILD_TYPE} \
+        --prefix=${PREFIX} \
+        --libdir=${LIBDIR} \
+        --libexecdir=${LIBEXECDIR} \
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/
+
+
+# GStreamer Ugly plugins
+#-----------------------
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gst-plugins-ugly.git && \
+    cd gst-plugins-ugly && \
+    PKG_CONFIG_PATH=$PWD/build/pkgconfig:${PKG_CONFIG_PATH} meson \
+        -Dexamples=disabled \
+        -Dtests=disabled \
+        -Dgtk_doc=disabled \
+        -Dnls=disabled \
+        -Dcdio=disabled \
+        -Dsid=disabled \
+        -Dmpeg2dec=disabled \
+        -Ddvdread=disabled \
+        -Da52dec=disabled \
+        -Dpackage-origin="${PACKAGE_ORIGIN}" \
+        --buildtype=${BUILD_TYPE} \
+        --prefix=${PREFIX} \
+        --libdir=${LIBDIR} \
+        --libexecdir=${LIBEXECDIR} \
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/
+
+
+# GStreamer VAAPI plugins
+#-----------------------
+RUN git clone https://gitlab.freedesktop.org/gstreamer/gstreamer-vaapi.git && \
+    cd gstreamer-vaapi && \
+    PKG_CONFIG_PATH=$PWD/build/pkgconfig:${PKG_CONFIG_PATH} meson \
+        -Dexamples=disabled \
+        -Dtests=disabled \
+        -Dgtk_doc=disabled \
+        -Dnls=disabled \
+        -Dpackage-origin="${PACKAGE_ORIGIN}" \
+        --buildtype=${BUILD_TYPE} \
+        --prefix=${PREFIX} \
+        --libdir=${LIBDIR} \
+        --libexecdir=${LIBEXECDIR} \
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/

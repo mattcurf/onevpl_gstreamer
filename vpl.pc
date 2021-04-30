@@ -1,4 +1,4 @@
-prefix=/opt/intel/oneapi/vpl/2021.2.2
+prefix=${pcfiledir}/../../
 exec_prefix=${prefix}
 libdir=${prefix}/lib
 includedir=${prefix}/include

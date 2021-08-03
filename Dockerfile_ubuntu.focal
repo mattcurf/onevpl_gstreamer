@@ -221,13 +221,7 @@ RUN git clone --depth=1 https://gitlab.freedesktop.org/gstreamer/gst-plugins-ugl
 #-----------------------
 RUN git clone --depth=1 https://github.com/intel-media-ci/cartwheel-gst-plugins-bad --recursive && \
     cd cartwheel-gst-plugins-bad/gst-plugins-bad && \
-    git config --global user.email "dev@example.com" && \
-    git config --global user.name "dev" && \
-    git checkout -b dev && \
-    git am ../patches/*.patch && \
-    cd .. && \
-    git pull --rebase --recurse-submodule && \
-    cd gst-plugins-bad && \
+    if [ -d "../patches" ]; then git config --global user.email "dev@example.com" && git config --global user.name "dev" && git checkout -b dev && git am ../patches/*.patch && cd .. &&  git pull --rebase --recurse-submodule && cd gst-plugins-bad; fi && \
     PKG_CONFIG_PATH=$PWD/build/pkgconfig:${PKG_CONFIG_PATH} meson \
         -Dmfx_api=oneVPL \
         -Dexamples=disabled \
@@ -268,8 +262,7 @@ RUN git clone --depth=1 https://gitlab.freedesktop.org/gstreamer/gstreamer-vaapi
         --prefix=${PREFIX} \
         --libdir=${LIBDIR} \
         --libexecdir=${LIBEXECDIR} \
-    build/ 
-#    build/ && \
-#    ninja -C build && \
-#    DESTDIR=/home/build meson install -C build/ && \
-#    meson install -C build/
+    build/ && \
+    ninja -C build && \
+    DESTDIR=/home/build meson install -C build/ && \
+    meson install -C build/

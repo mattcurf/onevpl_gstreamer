@@ -106,21 +106,19 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends software-pro
     apt-get install -y intel-opencl-icd intel-media-va-driver-non-free libmfx1 intel-oneapi-onevpl-devel
 
 ENV CMAKE_PREFIX_PATH=/opt/intel/oneapi/vpl
-ENV CPATH=/opt/intel/oneapi/vpl/2021.2.2/include
-ENV LD_LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LD_LIBRARY_PATH}
-ENV LIBRARY_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib:${LIBRARY_PATH}
-ENV PATH=/opt/intel/oneapi/vpl/2021.2.2/bin:${PATH}
-ENV PKG_CONFIG_PATH=/opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig:${PKG_CONFIG_PATH}
-ENV VPL_BIN=/opt/intel/oneapi/vpl/2021.2.2/bin
-ENV VPL_INCLUDE=/opt/intel/oneapi/vpl/2021.2.2/include
-ENV VPL_LIB=/opt/intel/oneapi/vpl/2021.2.2/lib
-ENV VPL_ROOT=/opt/intel/oneapi/vpl/2021.2.2
+ENV CPATH=/opt/intel/oneapi/vpl/latest/include
+ENV LD_LIBRARY_PATH=/opt/intel/oneapi/vpl/latest/lib:${LD_LIBRARY_PATH}
+ENV LIBRARY_PATH=/opt/intel/oneapi/vpl/latest/lib:${LIBRARY_PATH}
+ENV PATH=/opt/intel/oneapi/vpl/latest/bin:${PATH}
+ENV PKG_CONFIG_PATH=/opt/intel/oneapi/vpl/latest/lib/pkgconfig:${PKG_CONFIG_PATH}
+ENV VPL_BIN=/opt/intel/oneapi/vpl/latest/bin
+ENV VPL_INCLUDE=/opt/intel/oneapi/vpl/latest/include
+ENV VPL_LIB=/opt/intel/oneapi/vpl/latest/lib
+ENV VPL_ROOT=/opt/intel/oneapi/vpl/latest
 ENV ONEAPI_ROOT=/opt/intel/oneapi
 ENV LIBVA_DRIVER_NAME=iHD
 
-# Workaround for meson
-COPY vpl.pc /opt/intel/oneapi/vpl/2021.2.2/lib/pkgconfig/vpl.pc
-
+COPY vpl.pc /opt/intel/oneapi/vpl/latest/lib/pkgconfig/vpl.pc
 
 # GStreamer core
 #-----------------------
